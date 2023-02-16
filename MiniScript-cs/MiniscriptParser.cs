@@ -152,6 +152,8 @@ namespace Miniscript {
 				throw new CompilerException("'end if' without matching 'if'");
 			}
 		}
+
+		public int startLine = 1;
 		
 		// Partial input, in the case where line continuation has been used.
 		string partialInput;
@@ -272,6 +274,7 @@ namespace Miniscript {
 				}
 			}
 			Lexer tokens = new Lexer(partialInput + sourceCode);
+			tokens.lineNum = startLine;
 			partialInput = null;
 			ParseMultipleLines(tokens);
 

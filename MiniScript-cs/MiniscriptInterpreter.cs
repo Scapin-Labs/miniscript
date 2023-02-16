@@ -62,6 +62,8 @@ namespace Miniscript {
 		/// </summary>
 		public object hostData;
 
+		public int startLine = 1;
+
 		public bool useExceptions = false;
 		
 		/// <summary>
@@ -132,6 +134,7 @@ namespace Miniscript {
 			if (vm != null) return;	// already compiled
 
 			if (parser == null) parser = new Parser();
+			parser.startLine = startLine;
 			try {
 				parser.Parse(source);
 				vm = parser.CreateVM(standardOutput);
