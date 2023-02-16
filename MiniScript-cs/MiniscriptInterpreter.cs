@@ -61,6 +61,8 @@ namespace Miniscript {
 		/// for whatever you like (or don't, if you don't feel the need).
 		/// </summary>
 		public object hostData;
+
+		public bool useExceptions = false;
 		
 		/// <summary>
 		/// done: returns true when we don't have a virtual machine, or we do have
@@ -135,8 +137,15 @@ namespace Miniscript {
 				vm = parser.CreateVM(standardOutput);
 				vm.interpreter = new WeakReference(this);
 			} catch (MiniscriptException mse) {
-				ReportError(mse);
+				if (!useExceptions)
+				{
+					ReportError(mse);
+				}
 				if (vm == null) parser = null;
+				if (useExceptions)
+				{
+					throw;
+				}
 			}
 		}
 		
@@ -185,8 +194,15 @@ namespace Miniscript {
 					if (returnEarly && vm.GetTopContext().partialResult != null) return;	// waiting for something
 				}
 			} catch (MiniscriptException mse) {
-				ReportError(mse);
+				if (!useExceptions)
+				{
+					ReportError(mse);
+				}
 				Stop(); // was: vm.GetTopContext().JumpToEnd();
+				if (useExceptions)
+				{
+					throw;
+				}
 			}
 			CheckImplicitResult(startImpResultCount);
 		}
@@ -200,8 +216,15 @@ namespace Miniscript {
 				Compile();
 				vm.Step();
 			} catch (MiniscriptException mse) {
-				ReportError(mse);
+				if (!useExceptions)
+				{
+					ReportError(mse);
+				}
 				Stop(); // was: vm.GetTopContext().JumpToEnd();
+				if (useExceptions)
+				{
+					throw;
+				}
 			}
 		}
 
