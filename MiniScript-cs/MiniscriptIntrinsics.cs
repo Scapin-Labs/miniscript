@@ -935,6 +935,26 @@ namespace Miniscript {
 				}
 				return new Intrinsic.Result(new ValList(values));
 			};
+			
+			f = Intrinsic.Create("xrange");
+			f.AddParam("to");
+			f.code = (context, partialResult) => {
+				Value p1 = context.GetLocal("to");
+				int count = (int)p1.DoubleValue();
+				List<Value> values;
+				if (count > ValList.maxSize) throw new RuntimeException("list too large");
+				try {
+					values = new List<Value>(count);
+					for (double v = 0; v < count; v++) {
+						values.Add(TAC.Num(v));
+					}
+				} catch (SystemException e) {
+					// uh-oh... probably out-of-memory exception; clean up and bail out
+					values = null;
+					throw(new LimitExceededException("xrange() error", e));
+				}
+				return new Intrinsic.Result(new ValList(values));
+			};
 
 			// refEquals
 			//	Tests whether two values refer to the very same object (rather than
