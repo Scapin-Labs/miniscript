@@ -989,12 +989,39 @@ namespace Miniscript {
 		}
 	}
 	
+	public class ValAction : Value
+	{
+		public IntrinsicCode code;
+		public override string ToString(TAC.Machine vm)
+		{
+			return "Code";
+		}
+
+		public override int Hash()
+		{
+			return code.GetHashCode();
+		}
+
+		public override double Equality(Value rhs) {
+			return rhs is ValAction a && a.code == code ? 1 : 0;
+		}
+	}
+
 	/// <summary>
 	/// ValFunction: a Value that is, in fact, a Function.
 	/// </summary>
 	public class ValFunction : Value {
 		public Function function;
 		public readonly ValMap outerVars;	// local variables where the function was defined (usually, the module)
+
+		public ValFunction(IntrinsicCode code)
+		{
+			var action = new ValAction { code = code };
+			function = new Function(new List<TAC.Line>
+			{
+				new TAC.Line(TAC.LTemp(0), TAC.Line.Op.CallActionA, action)
+			});
+		}
 
 		public ValFunction(Function function) {
 			this.function = function;

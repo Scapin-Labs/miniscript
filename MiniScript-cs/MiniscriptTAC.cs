@@ -51,7 +51,8 @@ namespace Miniscript {
 				ReturnA,
 				ElemBofA,
 				ElemBofIterA,
-				LengthOfA
+				LengthOfA,
+				CallActionA,
 			}
 
 			public Value lhs;
@@ -250,6 +251,22 @@ namespace Miniscript {
 					string sB = opB.ToString(context.vm);
 					if (sA.Length + sB.Length > ValString.maxSize) throw new LimitExceededException("string too large");
 					return new ValString(sA + sB);
+				}
+
+				if (op == Op.CallActionA && opA is ValAction action)
+				{
+					Intrinsic.Result result = action.code(context, context.partialResult);
+					if (result.done)
+					{
+						context.partialResult = null;
+						return result.result;
+					}
+					// OK, this intrinsic function is not yet done with its work.
+					// We need to stay on this same line and call it again with 
+					// the partial result, until it reports that its job is complete.
+					context.partialResult = result;
+					context.lineNum--;
+					return null;
 				}
 
 				if (opA is ValNumber) {
