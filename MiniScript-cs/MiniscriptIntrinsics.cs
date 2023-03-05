@@ -63,6 +63,13 @@ namespace Miniscript {
 
 		public static List<Intrinsic> all = new List<Intrinsic>() { null };
 		static Dictionary<string, Intrinsic> nameMap = new Dictionary<string, Intrinsic>();
+
+		public static void Clear()
+		{
+			shortNames.Clear();
+			all.Clear();
+			nameMap.Clear();
+		}
 		
 		/// <summary>
 		/// Factory method to create a new Intrinsic, filling out its name as given,
