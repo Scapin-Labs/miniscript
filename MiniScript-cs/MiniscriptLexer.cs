@@ -3,8 +3,8 @@
 This file is used internally during parsing of the code, breaking source
 code text into a series of tokens.
 
-Unless you’re writing a fancy MiniScript code editor, you probably don’t 
-need to worry about this stuff. 
+Unless you’re writing a fancy MiniScript code editor, you probably don’t
+need to worry about this stuff.
 
 */
 using System;
@@ -53,7 +53,7 @@ namespace Miniscript {
 		public Type type;
 		public string text;	// may be null for things like operators, whose text is fixed
 		public bool afterSpace;
-		
+
 		public Token(Type type=Type.Unknown, string text=null) {
 			this.type = type;
 			this.text = text;
@@ -66,11 +66,11 @@ namespace Miniscript {
 
 		public static Token EOL = new Token() { type=Type.EOL };
 	}
-				
+
 	public class Lexer {
 		public int lineNum = 1;	// start at 1, so we report 1-based line numbers
 		public int position;
-		
+
 		string input;
 		int inputLength;
 
@@ -118,7 +118,7 @@ namespace Miniscript {
 					else if (c == '*') result.type = Token.Type.OpAssignTimes;
 					else if (c == '/') result.type = Token.Type.OpAssignDivide;
 					else if (c == '%') result.type = Token.Type.OpAssignMod;
-					else if (c == '^') result.type = Token.Type.OpAssignPower;					
+					else if (c == '^') result.type = Token.Type.OpAssignPower;
 				}
 				if (c == '!' && c2 == '=') result.type = Token.Type.OpNotEqual;
 				if (c == '>' && c2 == '=') result.type = Token.Type.OpGreatEqual;
@@ -203,7 +203,7 @@ namespace Miniscript {
 						result.text = result.text + " " + nextWord.text;
 					} else {
 						// Oops, didn't find another keyword.  User error.
-						throw new LexerException("'end' without following keyword ('if', 'function', etc.)");
+						throw new LexerException("'end' without following keyword ('if', 'function', etc.)", lineNum);
 					}
 				} else if (result.text == "else") {
 					// And similarly, conjoin an "if" after "else" (to make "else if").
@@ -236,9 +236,9 @@ namespace Miniscript {
 							gotEndQuote = true;
 							break;
 						}
-					}
+					} else if (c == '\n') { lineNum++; }
 				}
-				if (!gotEndQuote) throw new LexerException("missing closing quote (\")");
+				if (!gotEndQuote) throw new LexerException("missing closing quote (\")", lineNum);
 				result.text = input.Substring(startPos, position-startPos-1);
 				if (haveDoubledQuotes) result.text = result.text.Replace("\"\"", "\"");
 				return result;
@@ -262,7 +262,7 @@ namespace Miniscript {
 				while (!AtEnd && input[position] != '\n') position++;
 			}
 		}
-		
+
 		public static bool IsNumeric(char c) {
 			return c >= '0' && c <= '9';
 		}
@@ -278,7 +278,7 @@ namespace Miniscript {
 		public static bool IsWhitespace(char c) {
 			return c == ' ' || c == '\t';
 		}
-		
+
 		public bool IsAtWhitespace() {
 			// Caution: ignores queue, and uses only current position
 			return AtEnd || IsWhitespace(input[position]);
@@ -303,7 +303,7 @@ namespace Miniscript {
 			}
 			return commentStart;
 		}
-		
+
 		public static string TrimComment(string source) {
 			int startPos = source.LastIndexOf('\n') + 1;
 			int commentStart = CommentStartPos(source, startPos);
@@ -317,12 +317,12 @@ namespace Miniscript {
 			// Start by finding the start and logical  end of the last line.
 			int startPos = source.LastIndexOf('\n') + 1;
 			int commentStart = CommentStartPos(source, startPos);
-			
+
 			// Walk back from end of string or start of comment, skipping whitespace.
 			int endPos = (commentStart >= 0 ? commentStart-1 : source.Length - 1);
 			while (endPos >= 0 && IsWhitespace(source[endPos])) endPos--;
 			if (endPos < 0) return Token.EOL;
-			
+
 			// Find the start of that last token.
 			// There are several cases to consider here.
 			int tokStart = endPos;
@@ -342,7 +342,7 @@ namespace Miniscript {
 				char c2 = source[tokStart-1];
 				if (c2 == '>' || c2 == '<' || c2 == '=' || c2 == '!') tokStart--;
 			}
-			
+
 			// Now use the standard lexer to grab just that bit.
 			Lexer lex = new Lexer(source);
 			lex.position = tokStart;
@@ -410,22 +410,23 @@ namespace Miniscript {
 			CheckLineNum(lex.lineNum, 4);
 			Check(lex.Dequeue(), Token.Type.EOL);
 			UnitTest.ErrorIf(!lex.AtEnd, "AtEnd not set when it should be");
-			
+
 			lex = new Lexer("x += 42");
 			Check(lex.Dequeue(), Token.Type.Identifier, "x");
 			CheckLineNum(lex.lineNum, 1);
 			Check(lex.Dequeue(), Token.Type.OpAssignPlus);
 			Check(lex.Dequeue(), Token.Type.Number, "42");
 			UnitTest.ErrorIf(!lex.AtEnd, "AtEnd not set when it should be");
-			
+
 			Check(LastToken("x=42 // foo"), Token.Type.Number, "42");
 			Check(LastToken("x = [1, 2, // foo"), Token.Type.Comma);
 			Check(LastToken("x = [1, 2 // foo"), Token.Type.Number, "2");
 			Check(LastToken("x = [1, 2 // foo // and \"more\" foo"), Token.Type.Number, "2");
 			Check(LastToken("x = [\"foo\", \"//bar\"]"), Token.Type.RSquare);
-			Check(LastToken("print 1 // line 1\nprint 2"), Token.Type.Number, "2");			
-			Check(LastToken("print \"Hi\"\"Quote\" // foo bar"), Token.Type.String, "Hi\"Quote");			
+			Check(LastToken("print 1 // line 1\nprint 2"), Token.Type.Number, "2");
+			Check(LastToken("print \"Hi\"\"Quote\" // foo bar"), Token.Type.String, "Hi\"Quote");
 		}
+
 	}
 }
 

@@ -29,7 +29,7 @@ namespace Miniscript {
 			if (obj == null) ReportError("Unexpected null");
 		}
 
-		public static void ErrorIfNotNull(object obj) { 
+		public static void ErrorIfNotNull(object obj) {
 			if (obj != null) ReportError("Expected null, but got non-null");
 		}
 

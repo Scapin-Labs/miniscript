@@ -58,7 +58,7 @@ namespace Miniscript {
 			else if (this is RuntimeException) desc = "Runtime Error: ";
 			desc += Message;
 			if (location != null) desc += " " + location;
-			return desc;		
+			return desc;
 		}
 
 	}
@@ -67,7 +67,7 @@ namespace Miniscript {
 		public LexerException() : base("Lexer Error") {
 		}
 
-		public LexerException(string message) : base(message) {
+		public LexerException(string message, int lineNum) : base("", lineNum, message) {
 		}
 
 		public LexerException(string message, Exception inner) : base(message, inner) {
@@ -182,7 +182,7 @@ namespace Miniscript {
 					desc, i, min, max));
 			}
 		}
-		
+
 		public static void Type(Value val, System.Type requiredType, string desc=null) {
 			if (!requiredType.IsInstanceOfType(val)) {
 				string typeStr = val == null ? "null" : "a " + val.GetType();

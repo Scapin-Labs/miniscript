@@ -135,11 +135,11 @@ class MainClass {
 		UnitTest.Run();
 
 		Print("Running test suite.\n");
-		RunTestSuite("../../../TestSuite.txt");
+		RunTestSuite("TestSuite.txt");
 
 		Print("\n");
 
-		const string quickTestFilePath = "../../../QuickTest.ms";
+		const string quickTestFilePath = "QuickTest.ms";
 
 		if (File.Exists(quickTestFilePath)) {
 			Print("Running quick test.\n");

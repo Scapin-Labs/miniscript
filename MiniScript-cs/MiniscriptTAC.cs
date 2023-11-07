@@ -2,7 +2,7 @@
 
 This file defines the three-address code (TAC) which represents compiled
 MiniScript code.  TAC is sort of a pseudo-assembly language, composed of
-simple instructions containing an opcode and up to three variable/value 
+simple instructions containing an opcode and up to three variable/value
 references.
 
 This is all internal MiniScript virtual machine code.  You don't need to
@@ -11,12 +11,32 @@ deal with it directly (see MiniscriptInterpreter instead).
 */
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace Miniscript {
 
 	public static class TAC {
+        public static int VersionCompare(ValMap vma, Value opB)
+        {
+            if (vma.userData is Version v0)
+            {
+                Version v1 = null;
+                if (opB is ValMap vm && vm.userData is Version vv) { v1 = vv; }
+                else if (opB is ValString vs)
+                {
+                    var s = vs.ToString();
+                    if (!s.Contains(".")) { s += ".0"; }
+                    v1 = new Version(s);
+                }
+                else { return -3; }
+
+                var d = v0.CompareTo(v1);
+                return d;
+            }
+            return -2;
+        }
+
 
 		public class Line {
 			public enum Op {
@@ -47,6 +67,7 @@ namespace Miniscript {
 				GotoAifNotB,
 				PushParam,
 				CallFunctionA,
+				EvalVarA,
 				CallIntrinsicA,
 				ReturnA,
 				ElemBofA,
@@ -68,17 +89,17 @@ namespace Miniscript {
 				this.rhsA = rhsA;
 				this.rhsB = rhsB;
 			}
-			
+
 			public override int GetHashCode() {
 				return lhs.GetHashCode() ^ op.GetHashCode() ^ rhsA.GetHashCode() ^ rhsB.GetHashCode() ^ location.GetHashCode();
 			}
-			
+
 			public override bool Equals(object obj) {
 				if (!(obj is Line)) return false;
 				Line b = (Line)obj;
 				return op == b.op && lhs == b.lhs && rhsA == b.rhsA && rhsB == b.rhsB && location == b.location;
 			}
-			
+
 			public override string ToString() {
 				string text;
 				switch (op) {
@@ -177,7 +198,7 @@ namespace Miniscript {
 					break;
 				default:
 					throw new RuntimeException("unknown opcode: " + op);
-					
+
 				}
 				//if (comment != null) text = text + "\t// " + comment;
 				if (location != null) text = text + "\t// " + location;
@@ -241,7 +262,7 @@ namespace Miniscript {
 				if (op == Op.ANotEqualB && (opA == null || opB == null)) {
 					return ValNumber.Truth(opA != opB);
 				}
-				
+
 				// check for implicit coersion of other types to string; this happens
 				// when either side is a string and the operator is addition.
 				if ((opA is ValString || opB is ValString) && op == Op.APlusB) {
@@ -262,7 +283,7 @@ namespace Miniscript {
 						return result.result;
 					}
 					// OK, this intrinsic function is not yet done with its work.
-					// We need to stay on this same line and call it again with 
+					// We need to stay on this same line and call it again with
 					// the partial result, until it reports that its job is complete.
 					context.partialResult = result;
 					context.lineNum--;
@@ -303,7 +324,7 @@ namespace Miniscript {
 							return result.result;
 						}
 						// OK, this intrinsic function is not yet done with its work.
-						// We need to stay on this same line and call it again with 
+						// We need to stay on this same line and call it again with
 						// the partial result, until it reports that its job is complete.
 						context.partialResult = result;
 						context.lineNum--;
@@ -362,7 +383,7 @@ namespace Miniscript {
 							factor = ((ValNumber)opB).value;
 						} else {
 							Check.Type(opB, typeof(ValNumber), "string division");
-							factor = 1.0 / ((ValNumber)opB).value;								
+							factor = 1.0 / ((ValNumber)opB).value;
 						}
 						int repeats = (int)factor;
 						if (repeats < 0) return ValString.empty;
@@ -371,7 +392,7 @@ namespace Miniscript {
 						for (int i = 0; i < repeats; i++) result.Append(sA);
 						int extraChars = (int)(sA.Length * (factor - repeats));
 						if (extraChars > 0) result.Append(sA.Substring(0, extraChars));
-						return new ValString(result.ToString());						
+						return new ValString(result.ToString());
 					}
 					if (op == Op.ElemBofA || op == Op.ElemBofIterA) {
 						return ((ValString)opA).GetElem(opB);
@@ -410,7 +431,7 @@ namespace Miniscript {
 						// all we can do is equal or unequal testing.
 						// (Note that addition was handled way above here.)
 						if (op == Op.AEqualB) return ValNumber.zero;
-						if (op == Op.ANotEqualB) return ValNumber.one;						
+						if (op == Op.ANotEqualB) return ValNumber.one;
 					}
 				} else if (opA is ValList) {
 					List<Value> list = ((ValList)opA).values;
@@ -440,7 +461,7 @@ namespace Miniscript {
 							factor = ((ValNumber)opB).value;
 						} else {
 							Check.Type(opB, typeof(ValNumber), "list division");
-							factor = 1.0 / ((ValNumber)opB).value;								
+							factor = 1.0 / ((ValNumber)opB).value;
 						}
 						if (factor <= 0) return new ValList();
 						int finalCount = (int)(list.Count * factor);
@@ -453,7 +474,7 @@ namespace Miniscript {
 					} else if (op == Op.NotA) {
 						return ValNumber.Truth(!opA.BoolValue());
 					}
-				} else if (opA is ValMap) {
+				} else if (opA is ValMap vma) {
 					if (op == Op.ElemBofA) {
 						// map lookup
 						// (note, cases where opB is a string are handled above, along with
@@ -471,6 +492,22 @@ namespace Miniscript {
 						return ValNumber.Truth(((ValMap)opA).Equality(opB));
 					} else if (op == Op.ANotEqualB) {
 						return ValNumber.Truth(1.0 - ((ValMap)opA).Equality(opB));
+					} else if (op == Op.AGreaterThanB) {
+                        var d = VersionCompare(vma, opB);
+                        if (d < -1) { throw new MiniscriptException("Cant compare"); }
+                        return ValNumber.Truth(d > 0);
+					} else if (op == Op.AGreatOrEqualB) {
+                        var d = VersionCompare(vma, opB);
+                        if (d < -1) { throw new MiniscriptException("Cant compare"); }
+                        return ValNumber.Truth(d >= 0);
+					} else if (op == Op.ALessThanB) {
+                        var d = VersionCompare(vma, opB);
+                        if (d < -1) { throw new MiniscriptException("Cant compare"); }
+                        return ValNumber.Truth(d < 0);
+					} else if (op == Op.ALessOrEqualB) {
+                        var d = VersionCompare(vma, opB);
+                        if (d < -1) { throw new MiniscriptException("Cant compare"); }
+                        return ValNumber.Truth(d <= 0);
 					} else if (op == Op.APlusB) {
 						// map combination
 						Dictionary<Value, Value> map = ((ValMap)opA).map;
@@ -511,7 +548,7 @@ namespace Miniscript {
 						}
 					}
 				}
-				
+
 
 				if (op == Op.AAndB || op == Op.AOrB) {
 					// We already handled the case where opA was a number above;
@@ -531,16 +568,16 @@ namespace Miniscript {
 				return null;
 			}
 
-			static double AbsClamp01(double d) {
+            static double AbsClamp01(double d) {
 				if (d < 0) d = -d;
 				if (d > 1) return 1;
 				return d;
 			}
 
 		}
-		
+
 		/// <summary>
-		/// TAC.Context keeps track of the runtime environment, including local 
+		/// TAC.Context keeps track of the runtime environment, including local
 		/// variables.  Context objects form a linked list via a "parent" reference,
 		/// with a new context formed on each function call (this is known as the
 		/// call stack).
@@ -557,6 +594,9 @@ namespace Miniscript {
 			public Machine vm;				// virtual machine
 			public Intrinsic.Result partialResult;	// work-in-progress of our current intrinsic
 			public int implicitResultCounter;	// how many times we have stored an implicit result
+
+            public Value[] fnArgs;   // Actual function arguments
+            public Action onPop; // Action to be called when this context is popped
 
 			public bool done {
 				get { return lineNum >= code.Count; }
@@ -590,7 +630,7 @@ namespace Miniscript {
 			}
 
 			/// <summary>
-			/// Reset this context to the first line of code, clearing out any 
+			/// Reset this context to the first line of code, clearing out any
 			/// temporary variables, and optionally clearing out all variables.
 			/// </summary>
 			/// <param name="clearVariables">if true, clear our local variables</param>
@@ -633,7 +673,7 @@ namespace Miniscript {
 					variables[identifier] = value;
 				}
 			}
-			
+
 			/// <summary>
 			/// Get the value of a local variable ONLY -- does not check any other
 			/// scopes, nor check for special built-in identifiers like "globals".
@@ -647,7 +687,7 @@ namespace Miniscript {
 				}
 				return defaultValue;
 			}
-			
+
 			public int GetLocalInt(string identifier, int defaultValue = 0) {
 				Value result;
 				if (variables != null && variables.TryGetValue(identifier, out result)) {
@@ -697,7 +737,7 @@ namespace Miniscript {
 				if (lineNum < 0 || lineNum >= code.Count) return null;
 				return code[lineNum].location;
 			}
-			
+
 			/// <summary>
 			/// Get the value of a variable available in this context (including
 			/// locals, globals, and intrinsics).  Raise an exception if no such
@@ -723,7 +763,7 @@ namespace Miniscript {
 					if (root.variables == null) root.variables = new ValMap();
 					return root.variables;
 				}
-				
+
 				// check for a local variable
 				Value result;
 				if (variables != null && variables.TryGetValue(identifier, out result)) {
@@ -731,7 +771,7 @@ namespace Miniscript {
 				}
 				if (localOnly != ValVar.LocalOnlyMode.Off) {
 					if (localOnly == ValVar.LocalOnlyMode.Strict) throw new UndefinedLocalException(identifier);
-					else vm.standardOutput("Warning: assignment of unqualified local '" + identifier 
+					else vm.standardOutput("Warning: assignment of unqualified local '" + identifier
 					 + "' based on nonlocal is deprecated " + code[lineNum].location, true);
 				}
 
@@ -770,14 +810,14 @@ namespace Miniscript {
 						throw new RuntimeException("can't set an indexed element in this type");
 					}
 					Value index = seqElem.index;
-					if (index is ValVar || index is ValSeqElem || 
+					if (index is ValVar || index is ValSeqElem ||
 						index is ValTemp) index = index.Val(this);
 					seq.SetElem(index, value);
 				} else {
 					if (lhs != null) throw new RuntimeException("not an lvalue");
 				}
 			}
-			
+
 			public Value ValueInContext(Value value) {
 				if (value == null) return null;
 				return value.Val(this);
@@ -791,7 +831,7 @@ namespace Miniscript {
 			public void PushParamArgument(Value arg) {
 				if (args == null) args = new Stack<Value>();
 				if (args.Count > 255) throw new RuntimeException("Argument limit exceeded");
-				args.Push(arg);				
+				args.Push(arg);
 			}
 
 			/// <summary>
@@ -801,7 +841,7 @@ namespace Miniscript {
 			/// <returns>The call context.</returns>
 			/// <param name="func">Function to call.</param>
 			/// <param name="argCount">How many arguments to pop off the stack.</param>
-			/// <param name="gotSelf">Whether this method was called with dot syntax.</param> 
+			/// <param name="gotSelf">Whether this method was called with dot syntax.</param>
 			/// <param name="resultStorage">Value to stuff the result into when done.</param>
 			public Context NextCallContext(Function func, int argCount, bool gotSelf, Value resultStorage) {
 				Context result = new Context(func.code);
@@ -812,27 +852,38 @@ namespace Miniscript {
 				result.vm = vm;
 
 				// Stuff arguments, stored in our 'args' stack,
-				// into local variables corrersponding to parameter names.
+				// into local variables corresponding to parameter names.
 				// As a special case, skip over the first parameter if it is named 'self'
 				// and we were invoked with dot syntax.
-				int selfParam = (gotSelf && func.parameters.Count > 0 && func.parameters[0].name == "self" ? 1 : 0);
+				int selfParam = (gotSelf && func.parameters?.Count > 0 && func.parameters[0].name == "self" ? 1 : 0);
+                result.fnArgs = new Value[argCount + selfParam];
 				for (int i = 0; i < argCount; i++) {
 					// Careful -- when we pop them off, they're in reverse order.
 					Value argument = args.Pop();
 					int paramNum = argCount - 1 - i + selfParam;
-					if (paramNum >= func.parameters.Count) {
-						throw new TooManyArgumentsException();
-					}
-					string param = func.parameters[paramNum].name;
-					if (param == "self") result.self = argument;
-					else result.SetVar(param, argument);
-				}
-				// And fill in the rest with default values
-				for (int paramNum = argCount+selfParam; paramNum < func.parameters.Count; paramNum++) {
-					result.SetVar(func.parameters[paramNum].name, func.parameters[paramNum].defaultValue);
-				}
+                    result.fnArgs[paramNum] = argument;
+                    if (func.parameters != null)
+                    {
+                        if (paramNum >= func.parameters.Count)
+                        {
+                            throw new TooManyArgumentsException();
+                        }
 
-				return result;
+                        string param = func.parameters[paramNum].name;
+                        if (param == "self") result.self = argument;
+                        else result.SetVar(param, argument);
+                    }
+                }
+				// And fill in the rest with default values
+                if (func.parameters != null)
+                {
+                    for (int paramNum = argCount + selfParam; paramNum < func.parameters.Count; paramNum++)
+                    {
+                        result.SetVar(func.parameters[paramNum].name,
+                            func.parameters[paramNum].defaultValue);
+                    }
+                }
+                return result;
 			}
 
 			/// <summary>
@@ -866,11 +917,11 @@ namespace Miniscript {
 				return string.Format("Context[{0}/{1}]", lineNum, code.Count);
 			}
 		}
-		
+
 		/// <summary>
-		/// TAC.Machine implements a complete MiniScript virtual machine.  It 
-		/// keeps the context stack, keeps track of run time, and provides 
-		/// methods to step, stop, or reset the program.		
+		/// TAC.Machine implements a complete MiniScript virtual machine.  It
+		/// keeps the context stack, keeps track of run time, and provides
+		/// methods to step, stop, or reset the program.
 		/// </summary>
 		public class Machine {
 			public WeakReference interpreter;		// interpreter hosting this machine
@@ -883,7 +934,7 @@ namespace Miniscript {
 			public ValMap numberType;
 			public ValMap stringType;
 			public ValMap versionMap;
-			
+
 			public Context globalContext {			// contains global variables
 				get { return _globalContext; }
 			}
@@ -913,12 +964,20 @@ namespace Miniscript {
 			}
 
 			public void Stop() {
-				while (stack.Count > 1) stack.Pop();
+                while (stack.Count > 1)
+                {
+                    var context = stack.Pop();
+                    context.onPop?.Invoke();
+                }
 				stack.Peek().JumpToEnd();
 			}
-			
+
 			public void Reset() {
-				while (stack.Count > 1) stack.Pop();
+                while (stack.Count > 1)
+                {
+                    var context = stack.Pop();
+                    context.onPop?.Invoke();
+                }
 				stack.Peek().Reset(false);
 			}
 
@@ -936,21 +995,52 @@ namespace Miniscript {
 				}
 
 				Line line = context.code[context.lineNum++];
-				try {
-					DoOneLine(line, context);
-				} catch (MiniscriptException mse) {
-					if (mse.location == null) mse.location = line.location;
-					if (mse.location == null) {
-						foreach (Context c in stack) {
-							if (c.lineNum >= c.code.Count) continue;
-							mse.location = c.code[c.lineNum].location;
-							if (mse.location != null) break;
-						}
-					}
-					throw;
-				}
+                try { DoOneLine(line, context); }
+                catch (MiniscriptException mse)
+                {
+                    if (mse.location == null) mse.location = line.location;
+                    if (mse.location == null)
+                    {
+                        foreach (Context c in stack)
+                        {
+                            if (c.lineNum >= c.code.Count) continue;
+                            mse.location = c.code[c.lineNum].location;
+                            if (mse.location != null) break;
+                        }
+                    }
+
+                    throw;
+                }
+                catch (Exception e)
+                {
+#if UNITY_5_3_OR_NEWER
+                    UnityEngine.Debug.LogException(e);
+#endif
+                    while (e.InnerException != null)
+                    {
+                        e = e.InnerException;
+                    }
+                    var message = e.Message;
+                    if (message == "")
+                    {
+                        message = e.GetType().Name;
+
+                    }
+                    var mse = new MiniscriptException(message);
+                    mse.location = line.location;
+                    if (mse.location == null)
+                    {
+                        foreach (Context c in stack)
+                        {
+                            if (c.lineNum >= c.code.Count) continue;
+                            mse.location = c.code[c.lineNum].location;
+                            if (mse.location != null) break;
+                        }
+                    }
+                    throw mse;
+                }
 			}
-			
+
 			/// <summary>
 			/// Directly invoke a ValFunction by manually pushing it onto the call stack.
 			/// This might be useful, for example, in invoking handlers that have somehow
@@ -959,36 +1049,40 @@ namespace Miniscript {
 			/// <param name="func">Miniscript function to invoke</param>
 			/// <param name="resultStorage">where to store result of the call, in the calling context</param>
 			/// <param name="arguments">optional list of arguments to push</param>
-			public void ManuallyPushCall(ValFunction func, Value resultStorage=null, List<Value> arguments=null) {
+			public Context ManuallyPushCall(ValFunction func, Value resultStorage=null, List<Value> arguments=null) {
 				var context = stack.Peek();
-				int argCount = func.function.parameters.Count;
+                int argCount = arguments?.Count ?? 0;
+                if (argCount > func.function.parameters.Count)
+                {
+                    argCount = func.function.parameters.Count;
+                }
 				for (int i=0; i<argCount; i++) {
-					if (arguments != null && i < arguments.Count) {
-						Value val = context.ValueInContext(arguments[i]);
-						context.PushParamArgument(val);						
-					} else {
-						context.PushParamArgument(null);
-					}
+                      Value val = context.ValueInContext(arguments[i]);
+                      context.PushParamArgument(val);
 				}
-				Value self = null;	// "self" is always null for a manually pushed call
-				
-				Context nextContext = context.NextCallContext(func.function, argCount, self != null, null);
-				if (self != null) nextContext.self = self;
+				Context nextContext = context.NextCallContext(func.function, argCount, false, null);
 				nextContext.resultStorage = resultStorage;
-				stack.Push(nextContext);				
-			}
-			
+				stack.Push(nextContext);
+                return nextContext;
+        }
+
 			void DoOneLine(Line line, Context context) {
 //				Console.WriteLine("EXECUTING line " + (context.lineNum-1) + ": " + line);
 				if (line.op == Line.Op.PushParam) {
 					Value val = context.ValueInContext(line.rhsA);
 					context.PushParamArgument(val);
-				} else if (line.op == Line.Op.CallFunctionA) {
+				} else if (line.op == Line.Op.CallFunctionA || line.op == Line.Op.EvalVarA) {
+                    var isCall = line.op == Line.Op.CallFunctionA;
 					// Resolve rhsA.  If it's a function, invoke it; otherwise,
 					// just store it directly (but pop the call context).
 					ValMap valueFoundIn;
 					Value funcVal = line.rhsA.Val(context, out valueFoundIn);	// resolves the whole dot chain, if any
-					if (funcVal is ValFunction) {
+                    if (isCall && funcVal is ValMap vmap &&
+                        vmap.evalOverride != null && vmap.evalOverride(ValString.empty, out var result))
+                    {
+                        funcVal = result;
+                    }
+                    if (funcVal is ValFunction) {
 						Value self = null;
 						// bind "super" to the parent of the map the function was found in
 						Value super = valueFoundIn == null ? null : valueFoundIn.Lookup(ValString.magicIsA);
@@ -1030,10 +1124,11 @@ namespace Miniscript {
 				}
 			}
 
-			void PopContext() {
+			public void PopContext() {
 				// Our top context is done; pop it off, and copy the return value in temp 0.
 				if (stack.Count == 1) return;	// down to just the global stack (which we keep)
 				Context context = stack.Pop();
+                context.onPop?.Invoke();
 				Value result = context.GetTemp(0, null);
 				Value storage = context.resultStorage;
 				context = stack.Peek();
@@ -1047,7 +1142,7 @@ namespace Miniscript {
 			public void DumpTopContext() {
 				stack.Peek().Dump();
 			}
-			
+
 			public string FindShortName(Value val) {
 				if (globalContext == null || globalContext.variables == null) return null;
 				foreach (var kv in globalContext.variables.map) {
@@ -1057,7 +1152,7 @@ namespace Miniscript {
 				Intrinsic.shortNames.TryGetValue(val, out result);
 				return result;
 			}
-			
+
 			public List<SourceLoc> GetStack() {
 				var result = new List<SourceLoc>();
 				foreach (var context in stack) {
@@ -1098,7 +1193,7 @@ namespace Miniscript {
 		public static ValNumber IntrinsicByName(string name) {
 			return new ValNumber(Intrinsic.GetByName(name).id);
 		}
-		
+
 	}
 }
 

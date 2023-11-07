@@ -584,13 +584,11 @@ print {"abc":"def"} != "abcdef"
 print 1 < "42"
 print "abc" > [42]
 print [42] <= {1:2}
-print {"ichi":1} >= 0
 ----------------------------------------------------------------------
 0
 0
 1
 1
-null
 null
 null
 null

@@ -2,7 +2,7 @@
 
 This file defines the Intrinsic class, which represents a built-in function
 available to MiniScript code.  All intrinsics are held in static storage, so
-this class includes static functions such as GetByName to look up 
+this class includes static functions such as GetByName to look up
 already-defined intrinsics.  See Chapter 2 of the MiniScript Integration
 Guide for details on adding your own intrinsics.
 
@@ -28,7 +28,7 @@ namespace Miniscript {
 	/// <param name="partialResult">partial result from a previous invocation, if any</param>
 	/// <returns>result of the computation: whether it's complete, a partial result if not, and a Value if so</returns>
 	public delegate Intrinsic.Result IntrinsicCode(TAC.Context context, Intrinsic.Result partialResult);
-	
+
 	/// <summary>
 	/// Information about the app hosting MiniScript.  Set this in your main program.
 	/// This is provided to the user via the `version` intrinsic.
@@ -38,17 +38,17 @@ namespace Miniscript {
 		public static string info;		// URL or other short info about the host
 		public static double version;	// host program version number
 	}
-		
+
 	/// <summary>
 	/// Intrinsic: represents an intrinsic function available to MiniScript code.
 	/// </summary>
 	public class Intrinsic {
 		// name of this intrinsic (should be a valid MiniScript identifier)
 		public string name;
-		
+
 		// actual C# code invoked by the intrinsic
 		public IntrinsicCode code;
-		
+
 		// a numeric ID (used internally -- don't worry about this)
 		public int id { get { return numericID; } }
 
@@ -65,12 +65,19 @@ namespace Miniscript {
 		static Dictionary<string, Intrinsic> nameMap = new Dictionary<string, Intrinsic>();
 
 		public static void Clear()
-		{
+        {
+            Intrinsics.initialized = false;
 			shortNames.Clear();
 			all.Clear();
 			nameMap.Clear();
 		}
-		
+
+		public static void Remove(Intrinsic intrinsic)
+		{
+			all[intrinsic.numericID] = null;
+			intrinsic.code = null;
+		}
+
 		/// <summary>
 		/// Factory method to create a new Intrinsic, filling out its name as given,
 		/// and other internal properties as needed.  You'll still need to add any
@@ -79,23 +86,27 @@ namespace Miniscript {
 		/// <param name="name">intrinsic name</param>
 		/// <returns>freshly minted (but empty) static Intrinsic</returns>
 		public static Intrinsic Create(string name) {
-			Intrinsic result = new Intrinsic();
-			result.name = name;
-			result.numericID = all.Count;
+
+			if (!nameMap.TryGetValue(name, out var result))
+			{
+				result = new Intrinsic();
+				result.name = name;
+				result.numericID = all.Count;
+				all.Add(result);
+				nameMap[name] = result;
+			}
 			result.function = new Function(null);
 			result.valFunction = new ValFunction(result.function);
-			all.Add(result);
-			nameMap[name] = result;
 			return result;
 		}
-		
+
 		/// <summary>
 		/// Look up an Intrinsic by its internal numeric ID.
 		/// </summary>
 		public static Intrinsic GetByID(int id) {
 			return all[id];
 		}
-		
+
 		/// <summary>
 		/// Look up an Intrinsic by its name.
 		/// </summary>
@@ -105,7 +116,7 @@ namespace Miniscript {
 			if (nameMap.TryGetValue(name, out result)) return result;
 			return null;
 		}
-		
+
 		/// <summary>
 		/// Add a parameter to this Intrinsic, optionally with a default value
 		/// to be used if the user doesn't supply one.  You must add parameters
@@ -116,7 +127,7 @@ namespace Miniscript {
 		public void AddParam(string name, Value defaultValue=null) {
 			function.parameters.Add(new Function.Param(name, defaultValue));
 		}
-		
+
 		/// <summary>
 		/// Add a parameter with a numeric default value.  (See comments on
 		/// the first version of AddParam above.)
@@ -146,7 +157,7 @@ namespace Miniscript {
 			function.parameters.Add(new Function.Param(name, defVal));
 		}
 		ValString _self = new ValString("self");
-		
+
 		/// <summary>
 		/// GetFunc is used internally by the compiler to get the MiniScript function
 		/// that makes an intrinsic call.
@@ -160,7 +171,7 @@ namespace Miniscript {
 			}
 			return valFunction;
 		}
-		
+
 		/// <summary>
 		/// Internally-used function to execute an intrinsic (by ID) given a
 		/// context and a partial result.
@@ -169,18 +180,18 @@ namespace Miniscript {
 			Intrinsic item = GetByID(id);
 			return item.code(context, partialResult);
 		}
-		
+
 		/// <summary>
 		/// Result represents the result of an intrinsic call.  An intrinsic will either
 		/// be done with its work, or not yet done (e.g. because it's waiting for something).
 		/// If it's done, set done=true, and store the result Value in result.
-		/// If it's not done, set done=false, and store any partial result in result (and 
+		/// If it's not done, set done=false, and store any partial result in result (and
 		/// then your intrinsic will get invoked with this Result passed in as partialResult).
 		/// </summary>
 		public class Result {
 			public bool done;		// true if our work is complete; false if we need to Continue
 			public Value result;	// final result if done; in-progress data if not done
-			
+
 			/// <summary>
 			/// Result constructor taking a Value, and an optional done flag.
 			/// </summary>
@@ -207,31 +218,31 @@ namespace Miniscript {
 				if (string.IsNullOrEmpty(resultStr)) this.result = ValString.empty;
 				else this.result = new ValString(resultStr);
 			}
-			
+
 			/// <summary>
 			/// Result.Null: static Result representing null (no value).
 			/// </summary>
 			public static Result Null { get { return _null; } }
 			static Result _null = new Result(null, true);
-			
+
 			/// <summary>
 			/// Result.EmptyString: static Result representing "" (empty string).
 			/// </summary>
 			public static Result EmptyString { get { return _emptyString; } }
 			static Result _emptyString = new Result(ValString.empty);
-			
+
 			/// <summary>
 			/// Result.True: static Result representing true (1.0).
 			/// </summary>
 			public static Result True { get { return _true; } }
 			static Result _true = new Result(ValNumber.one, true);
-			
+
 			/// <summary>
 			/// Result.True: static Result representing false (0.0).
 			/// </summary>
 			public static Result False { get { return _false; } }
 			static Result _false = new Result(ValNumber.zero, true);
-			
+
 			/// <summary>
 			/// Result.Waiting: static Result representing a need to wait,
 			/// with no in-progress value.
@@ -240,22 +251,21 @@ namespace Miniscript {
 			static Result _waiting = new Result(null, false);
 		}
 	}
-	
+
 	/// <summary>
 	/// Intrinsics: a static class containing all of the standard MiniScript
 	/// built-in intrinsics.  You shouldn't muck with these, but feel free
 	/// to browse them for lots of examples of how to write your own intrinics.
 	/// </summary>
 	public static class Intrinsics {
+        internal static bool initialized;
 
-		static bool initialized;
-	
 		private struct KeyedValue {
 			public Value sortKey;
 			public Value value;
 			//public long valueIndex;
 		}
-		
+
 		// Helper method to get a stack trace, as a list of ValStrings.
 		// This is the heart of the stackTrace intrinsic.
 		// Public in case you want to call it from other places (for debugging, etc.).
@@ -295,7 +305,7 @@ namespace Miniscript {
 			};
 
 			// acos
-			//	Returns the inverse cosine, that is, the angle 
+			//	Returns the inverse cosine, that is, the angle
 			//	(in radians) whose cosine is the given value.
 			// x (number, default 0): cosine of the angle to find.
 			// Returns: angle, in radians, whose cosine is x.
@@ -357,7 +367,7 @@ namespace Miniscript {
 				int j = context.GetLocalInt("j");
 				return new Intrinsic.Result(i & j);
 			};
-			
+
 			// bitOr
 			//	Treats its arguments as integers, and computes the bitwise
 			//	`or`: each bit in the result is set if the corresponding
@@ -375,7 +385,7 @@ namespace Miniscript {
 				int j = context.GetLocalInt("j");
 				return new Intrinsic.Result(i | j);
 			};
-			
+
 			// bitXor
 			//	Treats its arguments as integers, and computes the bitwise
 			//	`xor`: each bit in the result is set only if the corresponding
@@ -393,7 +403,7 @@ namespace Miniscript {
 				int j = context.GetLocalInt("j");
 				return new Intrinsic.Result(i ^ j);
 			};
-			
+
 			// char
 			//	Gets a character from its Unicode code point.
 			// codePoint (number, default 65): Unicode code point of a character
@@ -407,9 +417,9 @@ namespace Miniscript {
 				string s = char.ConvertFromUtf32(codepoint);
 				return new Intrinsic.Result(s);
 			};
-			
+
 			// ceil
-			//	Returns the "ceiling", i.e. closest whole number 
+			//	Returns the "ceiling", i.e. closest whole number
 			//	greater than or equal to the given number.
 			// x (number, default 0): number to get the ceiling of
 			// Returns: closest whole number not less than x
@@ -420,7 +430,7 @@ namespace Miniscript {
 			f.code = (context, partialResult) => {
 				return new Intrinsic.Result(Math.Ceiling(context.GetLocalDouble("x")));
 			};
-			
+
 			// code
 			//	Return the Unicode code point of the first character of
 			//	the given string.  This is the inverse of `char`.
@@ -437,7 +447,7 @@ namespace Miniscript {
 				if (self != null) codepoint = char.ConvertToUtf32(self.ToString(), 0);
 				return new Intrinsic.Result(codepoint);
 			};
-						
+
 			// cos
 			//	Returns the cosine of the given angle (in radians).
 			// radians (number): angle, in radians, to get the cosine of
@@ -450,7 +460,7 @@ namespace Miniscript {
 			};
 
 			// floor
-			//	Returns the "floor", i.e. closest whole number 
+			//	Returns the "floor", i.e. closest whole number
 			//	less than or equal to the given number.
 			// x (number, default 0): number to get the floor of
 			// Returns: closest whole number not more than x
@@ -477,7 +487,7 @@ namespace Miniscript {
 				}
 				return new Intrinsic.Result(context.vm.functionType);
 			};
-			
+
 			// hash
 			//	Returns an integer that is "relatively unique" to the given value.
 			//	In the case of strings, the hash is case-sensitive.  In the case
@@ -532,7 +542,7 @@ namespace Miniscript {
 				}
 				return Intrinsic.Result.Null;
 			};
-			
+
 			// indexes
 			//	Returns the keys of a dictionary, or the non-negative indexes
 			//	for a string or list.
@@ -566,7 +576,7 @@ namespace Miniscript {
 				}
 				return Intrinsic.Result.Null;
 			};
-			
+
 			// indexOf
 			//	Returns index or key of the given value, or if not found,		returns null.
 			// self (string, list, or map): object to search
@@ -575,7 +585,7 @@ namespace Miniscript {
 			// Returns: first index (after `after`) such that self[index] == value, or null
 			// Example: "Hello World".indexOf("o")		returns 4
 			// Example: "Hello World".indexOf("o", 4)		returns 7
-			// Example: "Hello World".indexOf("o", 7)		returns null			
+			// Example: "Hello World".indexOf("o", 7)		returns null
 			f = Intrinsic.Create("indexOf");
 			f.AddParam("self");
 			f.AddParam("value");
@@ -587,13 +597,13 @@ namespace Miniscript {
 				if (self is ValList) {
 					List<Value> list = ((ValList)self).values;
 					int idx;
-					if (after == null) idx = list.FindIndex(x => 
+					if (after == null) idx = list.FindIndex(x =>
 						x == null ? value == null : x.Equality(value) == 1);
 					else {
 						int afterIdx = after.IntValue();
 						if (afterIdx < -1) afterIdx += list.Count;
 						if (afterIdx < -1 || afterIdx >= list.Count-1) return Intrinsic.Result.Null;
-						idx = list.FindIndex(afterIdx + 1, x => 
+						idx = list.FindIndex(afterIdx + 1, x =>
 							x == null ? value == null : x.Equality(value) == 1);
 					}
 					if (idx >= 0) return new Intrinsic.Result(idx);
@@ -639,26 +649,41 @@ namespace Miniscript {
 			f.AddParam("self");
 			f.AddParam("index");
 			f.AddParam("value");
-			f.code = (context, partialResult) => {
-				Value self = context.self;
-				Value index = context.GetLocal("index");
-				Value value = context.GetLocal("value");
-				if (index == null) throw new RuntimeException("insert: index argument required");
-				if (!(index is ValNumber)) throw new RuntimeException("insert: number required for index argument");
-				int idx = index.IntValue();
-				if (self is ValList) {
-					List<Value> list = ((ValList)self).values;
-					if (idx < 0) idx += list.Count + 1;	// +1 because we are inserting AND counting from the end.
-					Check.Range(idx, 0, list.Count);	// and allowing all the way up to .Count here, because insert.
-					list.Insert(idx, value);
-					return new Intrinsic.Result(self);
-				} else if (self is ValString) {
-					string s = self.ToString();
-					if (idx < 0) idx += s.Length + 1;
-					Check.Range(idx, 0, s.Length);
-					s = s.Substring(0, idx) + value.ToString() + s.Substring(idx);
-					return new Intrinsic.Result(s);
-				} else {
+			f.code = (context, partialResult) =>
+            {
+                Value self = context.self;
+                Value index = context.GetLocal("index");
+                Value value = context.GetLocal("value");
+                if (index == null) throw new RuntimeException("insert: index argument required");
+                int idx = index.IntValue();
+                if (self is ValList valList)
+                {
+                    if (!(index is ValNumber))
+                        throw new RuntimeException("insert: number required for index argument");
+                    List<Value> list = valList.values;
+                    if (idx < 0)
+                        idx += list.Count +
+                               1; // +1 because we are inserting AND counting from the end.
+                    Check.Range(idx, 0,
+                        list.Count); // and allowing all the way up to .Count here, because insert.
+                    list.Insert(idx, value);
+                    return new Intrinsic.Result(valList);
+                }
+                else if (self is ValString)
+                {
+                    if (!(index is ValNumber))
+                        throw new RuntimeException("insert: number required for index argument");
+                    string s = self.ToString();
+                    if (idx < 0) idx += s.Length + 1;
+                    Check.Range(idx, 0, s.Length);
+                    s = s.Substring(0, idx) + value.ToString() + s.Substring(idx);
+                    return new Intrinsic.Result(s);
+                }
+                else if (self is ValMap vm)
+                {
+                    vm.map.Add(index, value);
+                    return new Intrinsic.Result(self);
+                } else {
 					throw new RuntimeException("insert called on invalid type");
 				}
 			};
@@ -686,7 +711,29 @@ namespace Miniscript {
 				string result = string.Join(delim, list.ToArray());
 				return new Intrinsic.Result(result);
 			};
-			
+
+			f = Intrinsic.Create("merge");
+			f.AddParam("self");
+			f.AddParam("other");
+			f.code = (context, partialResult) => {
+				var self = context.self as ValMap;
+				var other = context.GetVar("other") as ValMap;
+                if (self == null || other == null)
+                {
+                    throw new MiniscriptException("Illegal arguments for join");
+                }
+
+                var result = new ValMap
+                {
+                    map = new Dictionary<Value, Value>(self.map)
+                };
+                foreach (var kvp in other.map)
+                {
+                    result.map[kvp.Key] = kvp.Value;
+                }
+                return new Intrinsic.Result(result);
+			};
+
 			// self.len
 			//	Return the number of characters in a string, elements in
 			//	a list, or key/value pairs in a map.
@@ -709,7 +756,7 @@ namespace Miniscript {
 				}
 				return Intrinsic.Result.Null;
 			};
-			
+
 			// list type
 			//	Returns a map that represents the list datatype in
 			//	MiniScript's core type system.  This can be used with `isa`
@@ -724,7 +771,7 @@ namespace Miniscript {
 				}
 				return new Intrinsic.Result(context.vm.listType);
 			};
-			
+
 			// log(x, base)
 			//	Returns the logarithm (with the given) of the given number,
 			//	that is, the number y such that base^y = x.
@@ -743,7 +790,7 @@ namespace Miniscript {
 				else result = Math.Log(x) / Math.Log(b);
 				return new Intrinsic.Result(result);
 			};
-			
+
 			// lower
 			//	Return a lower-case version of a string.
 			//	May be called with function syntax or dot syntax.
@@ -776,7 +823,7 @@ namespace Miniscript {
 				}
 				return new Intrinsic.Result(context.vm.mapType);
 			};
-			
+
 			// number type
 			//	Returns a map that represents the number datatype in
 			//	MiniScript's core type system.  This can be used with `isa`
@@ -793,7 +840,7 @@ namespace Miniscript {
 				}
 				return new Intrinsic.Result(context.vm.numberType);
 			};
-			
+
 			// pi
 			//	Returns the universal constant π, that is, the ratio of
 			//	a circle's circumference to its diameter.
@@ -823,7 +870,7 @@ namespace Miniscript {
 				else context.vm.standardOutput(s + delimiter.ToString(), false);
 				return Intrinsic.Result.Null;
 			};
-				
+
 			// pop
 			//	Removes and	returns the last item in a list, or an arbitrary
 			//	key of a map.  If the list or map is empty (or if called on
@@ -942,7 +989,7 @@ namespace Miniscript {
 				}
 				return new Intrinsic.Result(new ValList(values));
 			};
-			
+
 			f = Intrinsic.Create("xrange");
 			f.AddParam("to");
 			f.code = (context, partialResult) => {
@@ -1183,7 +1230,7 @@ namespace Miniscript {
 			f.code = (context, partialResult) => {
 				return new Intrinsic.Result(Math.Sin(context.GetLocalDouble("radians")));
 			};
-				
+
 			// slice
 			//	Return a subset of a string or list.  This is equivalent to using
 			//	the square-brackets slice operator seq[from:to], but with ordinary
@@ -1231,7 +1278,7 @@ namespace Miniscript {
 				}
 				return Intrinsic.Result.Null;
 			};
-			
+
 			// sort
 			//	Sorts a list in place.  With null or no argument, this sorts the
 			//	list elements by their own values.  With the byKey argument, each
@@ -1361,7 +1408,7 @@ namespace Miniscript {
 			// See also: val
 			f = Intrinsic.Create("str");
 			f.AddParam("x", ValString.empty);
-			f.code = (context, partialResult) => {		
+			f.code = (context, partialResult) => {
 				var x = context.GetLocal("x");
 				if (x == null) return new Intrinsic.Result(ValString.empty);
 				return new Intrinsic.Result(x.ToString());
@@ -1460,7 +1507,7 @@ namespace Miniscript {
 			f.code = (context, partialResult) => {
 				return new Intrinsic.Result(context.vm.runTime);
 			};
-			
+
 			// upper
 			//	Return an upper-case (all capitals) version of a string.
 			//	May be called with function syntax or dot syntax.
@@ -1478,7 +1525,7 @@ namespace Miniscript {
 				}
 				return new Intrinsic.Result(val);
 			};
-			
+
 			// val
 			//	Return the numeric value of a given string.  (If given a number,
 			//	returns it as-is; if given a list or map, returns null.)
@@ -1541,7 +1588,7 @@ namespace Miniscript {
 				if (context.vm.versionMap == null) {
 					var d = new ValMap();
 					d["miniscript"] = new ValString("1.5.9");
-			
+
 					// Getting the build date is annoyingly hard in C#.
 					// This will work if the assembly.cs file uses the version format: 1.0.*
 					DateTime buildDate;
@@ -1605,7 +1652,7 @@ namespace Miniscript {
 			ValFunction func = Intrinsic.GetByName("slice").GetFunc();
 			code.Add(new TAC.Line(TAC.LTemp(resultTempNum), TAC.Line.Op.CallFunctionA, func, TAC.Num(3)));
 		}
-		
+
 		/// <summary>
 		/// FunctionType: a static map that represents the Function type.
 		/// </summary>
@@ -1616,7 +1663,7 @@ namespace Miniscript {
 			return _functionType;
 		}
 		static ValMap _functionType = null;
-		
+
 		/// <summary>
 		/// ListType: a static map that represents the List type, and provides
 		/// intrinsic methods that can be invoked on it via dot syntax.
@@ -1643,7 +1690,7 @@ namespace Miniscript {
 			return _listType;
 		}
 		static ValMap _listType = null;
-		
+
 		/// <summary>
 		/// StringType: a static map that represents the String type, and provides
 		/// intrinsic methods that can be invoked on it via dot syntax.
@@ -1668,7 +1715,7 @@ namespace Miniscript {
 			return _stringType;
 		}
 		static ValMap _stringType = null;
-		
+
 		/// <summary>
 		/// MapType: a static map that represents the Map type, and provides
 		/// intrinsic methods that can be invoked on it via dot syntax.
@@ -1679,6 +1726,7 @@ namespace Miniscript {
 				_mapType["hasIndex"] = Intrinsic.GetByName("hasIndex").GetFunc();
 				_mapType["indexes"] = Intrinsic.GetByName("indexes").GetFunc();
 				_mapType["indexOf"] = Intrinsic.GetByName("indexOf").GetFunc();
+				_mapType["insert"] = Intrinsic.GetByName("insert").GetFunc();
 				_mapType["len"] = Intrinsic.GetByName("len").GetFunc();
 				_mapType["pop"] = Intrinsic.GetByName("pop").GetFunc();
 				_mapType["push"] = Intrinsic.GetByName("push").GetFunc();
@@ -1688,11 +1736,18 @@ namespace Miniscript {
 				_mapType["remove"] = Intrinsic.GetByName("remove").GetFunc();
 				_mapType["replace"] = Intrinsic.GetByName("replace").GetFunc();
 				_mapType["values"] = Intrinsic.GetByName("values").GetFunc();
-			}
+				_mapType["merge"] = Intrinsic.GetByName("merge").GetFunc();
+            }
 			return _mapType;
 		}
+
+        public static void AddSelfMethod(string name)
+        {
+            MapType()[name] = Intrinsic.GetByName(name).GetFunc();
+        }
+
 		static ValMap _mapType = null;
-		
+
 		/// <summary>
 		/// NumberType: a static map that represents the Number type.
 		/// </summary>
@@ -1703,7 +1758,7 @@ namespace Miniscript {
 			return _numberType;
 		}
 		static ValMap _numberType = null;
-		
-		
+
+
 	}
 }

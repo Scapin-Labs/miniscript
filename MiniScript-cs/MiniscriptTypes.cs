@@ -1,6 +1,6 @@
 ﻿/*	MiniscriptTypes.cs
 
-Classes in this file represent the MiniScript type system.  Value is the 
+Classes in this file represent the MiniScript type system.  Value is the
 abstract base class for all of them (i.e., represents ANY value in MiniScript),
 from which more specific types are derived.
 
@@ -11,7 +11,7 @@ using System.Linq;
 using System.Globalization;
 
 namespace Miniscript {
-	
+
 	/// <summary>
 	/// Value: abstract base class for the MiniScript type hierarchy.
 	/// Defines a number of handy methods that you can call on ANY
@@ -28,13 +28,13 @@ namespace Miniscript {
 		public virtual Value Val(TAC.Context context) {
 			return this;		// most types evaluate to themselves
 		}
-		
+
 		public override string ToString() {
 			return ToString(null);
 		}
-		
+
 		public abstract string ToString(TAC.Machine vm);
-		
+
 		/// <summary>
 		/// This version of Val is like the one above, but also returns
 		/// (via the output parameter) the ValMap the value was found in,
@@ -47,7 +47,7 @@ namespace Miniscript {
 			valueFoundIn = null;
 			return this;
 		}
-		
+
 		/// <summary>
 		/// Similar to Val, but recurses into the sub-values contained by this
 		/// value (if it happens to be a container, such as a list or map).
@@ -57,7 +57,7 @@ namespace Miniscript {
 		public virtual Value FullEval(TAC.Context context) {
 			return this;
 		}
-		
+
 		/// <summary>
 		/// Get the numeric value of this Value as an integer.
 		/// </summary>
@@ -65,7 +65,7 @@ namespace Miniscript {
 		public virtual int IntValue() {
 			return (int)DoubleValue();
 		}
-		
+
 		/// <summary>
 		/// Get the numeric value of this Value as an unsigned integer.
 		/// </summary>
@@ -73,7 +73,7 @@ namespace Miniscript {
 		public virtual uint UIntValue() {
 			return (uint)DoubleValue();
 		}
-		
+
 		/// <summary>
 		/// Get the numeric value of this Value as a single-precision float.
 		/// </summary>
@@ -81,7 +81,7 @@ namespace Miniscript {
 		public virtual float FloatValue() {
 			return (float)DoubleValue();
 		}
-		
+
 		/// <summary>
 		/// Get the numeric value of this Value as a double-precision floating-point number.
 		/// </summary>
@@ -89,7 +89,7 @@ namespace Miniscript {
 		public virtual double DoubleValue() {
 			return 0;				// most types don't have a numeric value
 		}
-		
+
 		/// <summary>
 		/// Get the boolean (truth) value of this Value.  By default, we consider
 		/// any numeric value other than zero to be true.  (But subclasses override
@@ -99,7 +99,7 @@ namespace Miniscript {
 		public virtual bool BoolValue() {
 			return IntValue() != 0;
 		}
-		
+
 		/// <summary>
 		/// Get this value in the form of a MiniScript literal.
 		/// </summary>
@@ -108,27 +108,27 @@ namespace Miniscript {
 		public virtual string CodeForm(TAC.Machine vm, int recursionLimit=-1) {
 			return ToString(vm);
 		}
-		
+
 		/// <summary>
 		/// Get a hash value for this Value.  Two values that are considered
 		/// equal will return the same hash value.
 		/// </summary>
 		/// <returns>hash value</returns>
 		public abstract int Hash();
-		
+
 		/// <summary>
 		/// Check whether this Value is equal to another Value.
 		/// </summary>
 		/// <param name="rhs">other value to compare to</param>
 		/// <returns>1 if these values are considered equal; 0 if not equal; 0.5 if unsure</returns>
 		public abstract double Equality(Value rhs);
-		
+
 		/// <summary>
 		/// Can we set elements within this value?  (I.e., is it a list or map?)
 		/// </summary>
 		/// <returns>true if SetElem can work; false if it does nothing</returns>
 		public virtual bool CanSetElem() { return false; }
-		
+
 		/// <summary>
 		/// Set an element associated with the given index within this Value.
 		/// </summary>
@@ -184,7 +184,7 @@ namespace Miniscript {
 		/// Note that this works correctly for loops (maintaining a visited
 		/// list to avoid recursing indefinitely).
 		/// </summary>
-		protected bool RecursiveEqual(Value rhs) { 
+		protected bool RecursiveEqual(Value rhs) {
 			var toDo = new Stack<ValuePair>();
 			var visited = new HashSet<ValuePair>();
 			toDo.Push(new ValuePair() { a = this, b = rhs });
@@ -291,11 +291,11 @@ namespace Miniscript {
 	/// </summary>
 	public class ValNull : Value {
 		private ValNull() {}
-		
+
 		public override string ToString(TAC.Machine machine) {
 			return "null";
 		}
-		
+
 		public override bool IsA(Value type, TAC.Machine vm) {
 			return false;
 		}
@@ -312,11 +312,11 @@ namespace Miniscript {
 			valueFoundIn = null;
 			return null;
 		}
-		
+
 		public override Value FullEval(TAC.Context context) {
 			return null;
 		}
-		
+
 		public override int IntValue() {
 			return 0;
 		}
@@ -324,7 +324,7 @@ namespace Miniscript {
 		public override double DoubleValue() {
 			return 0.0;
 		}
-		
+
 		public override bool BoolValue() {
 			return false;
 		}
@@ -334,14 +334,14 @@ namespace Miniscript {
 		}
 
 		static readonly ValNull _inst = new ValNull();
-		
+
 		/// <summary>
 		/// Handy accessor to a shared "instance".
 		/// </summary>
 		public static ValNull instance { get { return _inst; } }
-		
+
 	}
-	
+
 	/// <summary>
 	/// ValNumber represents a numeric (double-precision floating point) value in MiniScript.
 	/// Since we also use numbers to represent boolean values, ValNumber does that job too.
@@ -376,7 +376,7 @@ namespace Miniscript {
 		public override double DoubleValue() {
 			return value;
 		}
-		
+
 		public override bool BoolValue() {
 			// Any nonzero value is considered true, when treated as a bool.
 			return value != 0;
@@ -395,19 +395,21 @@ namespace Miniscript {
 		}
 
 		static ValNumber _zero = new ValNumber(0), _one = new ValNumber(1);
-		
+        public static ValBoolean False = new ValBoolean(false);
+        public static ValBoolean True = new ValBoolean(true);
+
 		/// <summary>
 		/// Handy accessor to a shared "zero" (0) value.
 		/// IMPORTANT: do not alter the value of the object returned!
 		/// </summary>
 		public static ValNumber zero { get { return _zero; } }
-		
+
 		/// <summary>
 		/// Handy accessor to a shared "one" (1) value.
 		/// IMPORTANT: do not alter the value of the object returned!
 		/// </summary>
 		public static ValNumber one { get { return _one; } }
-		
+
 		/// <summary>
 		/// Convenience method to get a reference to zero or one, according
 		/// to the given boolean.  (Note that this only covers Boolean
@@ -417,28 +419,34 @@ namespace Miniscript {
 		/// </summary>
 		/// <param name="truthValue">whether to return 1 (true) or 0 (false)</param>
 		/// <returns>ValNumber.one or ValNumber.zero</returns>
-		public static ValNumber Truth(bool truthValue) {
-			return truthValue ? one : zero;
+		public static ValBoolean Truth(bool truthValue) {
+			return truthValue ? True : False;
 		}
-		
+
 		/// <summary>
 		/// Basically this just makes a ValNumber out of a double,
 		/// BUT it is optimized for the case where the given value
 		///	is either 0 or 1 (as is usually the case with truth tests).
 		/// </summary>
-		public static ValNumber Truth(double truthValue) {
-			if (truthValue == 0.0) return zero;
-			if (truthValue == 1.0) return one;
-			return new ValNumber(truthValue);
-		}
+		public static ValBoolean Truth(double truthValue)
+        {
+            return truthValue == 0.0 ? False : True;
+        }
 	}
-	
+
+    public class ValBoolean : ValNumber
+    {
+        public ValBoolean(bool b) : base(b ? 1 : 0)
+        {
+        }
+    }
+
 	/// <summary>
 	/// ValString represents a string (text) value.
 	/// </summary>
 	public class ValString : Value {
 		public static long maxSize = 0xFFFFFF;		// about 16M elements
-		
+
 		public string value;
 
 		public ValString(string value) {
@@ -484,9 +492,9 @@ namespace Miniscript {
 
 		// Magic identifier for the is-a entry in the class system:
 		public static ValString magicIsA = new ValString("__isa");
-		
+
 		static ValString _empty = new ValString("");
-		
+
 		/// <summary>
 		/// Handy accessor for an empty ValString.
 		/// IMPORTANT: do not alter the value of the object returned!
@@ -494,7 +502,7 @@ namespace Miniscript {
 		public static ValString empty { get { return _empty; } }
 
 	}
-	
+
 	// We frequently need to generate a ValString out of a string for fleeting purposes,
 	// like looking up an identifier in a map (which we do ALL THE TIME).  So, here's
 	// a little recycling pool of reusable ValStrings, for this purpose only.
@@ -526,15 +534,15 @@ namespace Miniscript {
 			}
 		}
 	}
-	
-	
+
+
 	/// <summary>
 	/// ValList represents a MiniScript list (which, under the hood, is
 	/// just a wrapper for a List of Values).
 	/// </summary>
 	public class ValList : Value {
 		public static long maxSize = 0xFFFFFF;		// about 16 MB
-		
+
 		public List<Value> values;
 
 		public ValList(List<Value> values = null) {
@@ -647,7 +655,7 @@ namespace Miniscript {
 		}
 
 	}
-	
+
 	/// <summary>
 	/// ValMap represents a MiniScript map, which under the hood is just a Dictionary
 	/// of Value, Value pairs.
@@ -679,7 +687,7 @@ namespace Miniscript {
 		public ValMap() {
 			this.map = new Dictionary<Value, Value>(RValueEqualityComparer.instance);
 		}
-		
+
 		public override bool BoolValue() {
 			// A map is considered true if it is nonempty.
 			return map != null && map.Count > 0;
@@ -696,7 +704,7 @@ namespace Miniscript {
 			TempValString.Release(idVal);
 			return result;
 		}
-		
+
 		/// <summary>
 		/// Convenience method to check whether this map contains a given key
 		/// (of arbitrary type).
@@ -707,22 +715,22 @@ namespace Miniscript {
 			if (key == null) key = ValNull.instance;
 			return map.ContainsKey(key);
 		}
-		
+
 		/// <summary>
 		/// Get the number of entries in this map.
 		/// </summary>
 		public int Count {
 			get { return map.Count; }
 		}
-		
+
 		/// <summary>
 		/// Return the KeyCollection for this map.
 		/// </summary>
 		public Dictionary<Value, Value>.KeyCollection Keys {
 			get { return map.Keys; }
 		}
-		
-		
+
+
 		/// <summary>
 		/// Accessor to get/set on element of this map by a string key, walking
 		/// the __isa chain as needed.  (Note that if you want to avoid that, then
@@ -731,7 +739,7 @@ namespace Miniscript {
 		/// <param name="identifier">string key to get/set</param>
 		/// <returns>value associated with that key</returns>
 		public Value this [string identifier] {
-			get { 
+			get {
 				var idVal = TempValString.Get(identifier);
 				Value result = Lookup(idVal);
 				TempValString.Release(idVal);
@@ -739,7 +747,7 @@ namespace Miniscript {
 			}
 			set { map[new ValString(identifier)] = value; }
 		}
-		
+
 		/// <summary>
 		/// Look up the given identifier as quickly as possible, without
 		/// walking the __isa chain or doing anything fancy.  (This is used
@@ -771,7 +779,7 @@ namespace Miniscript {
 
 		/// <summary>
 		/// Look up a value in this dictionary, walking the __isa chain to find
-		/// it in a parent object if necessary.  
+		/// it in a parent object if necessary.
 		/// </summary>
 		/// <param name="key">key to search for</param>
 		/// <returns>value associated with that key, or null if not found</returns>
@@ -819,7 +827,7 @@ namespace Miniscript {
 			valueFoundIn = null;
 			return null;
 		}
-		
+
 		public override Value FullEval(TAC.Context context) {
 			// Evaluate each of our elements, and if any of those is
 			// a variable or temp, then resolve those now.
@@ -865,7 +873,7 @@ namespace Miniscript {
 			foreach (KeyValuePair<Value, Value> kv in map) {
 				int nextRecurLimit = recursionLimit - 1;
 				if (kv.Key == ValString.magicIsA) nextRecurLimit = 1;
-				strs[i++] = string.Format("{0}: {1}", kv.Key.CodeForm(vm, nextRecurLimit), 
+				strs[i++] = string.Format("{0}: {1}", kv.Key.CodeForm(vm, nextRecurLimit),
 					kv.Value == null ? "null" : kv.Value.CodeForm(vm, nextRecurLimit));
 			}
 			return "{" + String.Join(", ", strs) + "}";
@@ -899,14 +907,32 @@ namespace Miniscript {
 
 		public override double Equality(Value rhs) {
 			// Quick bail-out cases:
-			if (!(rhs is ValMap)) return 0;
-			Dictionary<Value, Value> rhm = ((ValMap)rhs).map;
-			if (rhm == map) return 1;  // (same map)
-			int count = map.Count;
-			if (count != rhm.Count) return 0;
+            if (userData is Version v)
+            {
+                var d = TAC.VersionCompare(this, rhs);
+                return d == 0 ? 1 : 0;
+            }
 
-			// Otherwise:
-			return RecursiveEqual(rhs) ? 1 : 0;
+            if (rhs is ValMap valMap)
+            {
+	            Dictionary<Value, Value> rhm = valMap.map;
+	            if (rhm == map) return 1; // (same map)
+
+	            if (valMap.userData != null && userData != null)
+	            {
+		            var a = userData.Equals(valMap.userData);
+		            return a ? 1 : 0;
+	            }
+
+
+	            int count = map.Count;
+	            if (count != rhm.Count) return 0;
+
+	            // Otherwise:
+	            return RecursiveEqual(valMap) ? 1 : 0;
+            }
+
+            return 0;
 		}
 
 		public override bool CanSetElem() { return true; }
@@ -944,11 +970,11 @@ namespace Miniscript {
 		static ValString valStr = new ValString("value");
 
 	}
-	
+
 	/// <summary>
 	/// Function: our internal representation of a MiniScript function.  This includes
-	/// its parameters and its code.  (It does not include a name -- functions don't 
-	/// actually HAVE names; instead there are named variables whose value may happen 
+	/// its parameters and its code.  (It does not include a name -- functions don't
+	/// actually HAVE names; instead there are named variables whose value may happen
 	/// to be a function.)
 	/// </summary>
 	public class Function {
@@ -964,10 +990,10 @@ namespace Miniscript {
 				this.defaultValue = defaultValue;
 			}
 		}
-		
+
 		// Function parameters
 		public List<Param> parameters;
-		
+
 		// Function code (compiled down to TAC form)
 		public List<TAC.Line> code;
 
@@ -978,7 +1004,7 @@ namespace Miniscript {
 
 		public string ToString(TAC.Machine vm) {
 			var s = new System.Text.StringBuilder();
-			s.Append("FUNCTION(");			
+			s.Append("FUNCTION(");
 			for (var i=0; i < parameters.Count(); i++) {
 				if (i > 0) s.Append(", ");
 				s.Append(parameters[i].name);
@@ -988,7 +1014,7 @@ namespace Miniscript {
 			return s.ToString();
 		}
 	}
-	
+
 	public class ValAction : Value
 	{
 		public IntrinsicCode code;
@@ -1093,11 +1119,11 @@ namespace Miniscript {
 
 	public class ValVar : Value {
 		public enum LocalOnlyMode { Off, Warn, Strict };
-		
+
 		public string identifier;
 		public bool noInvoke;	// reflects use of "@" (address-of) operator
 		public LocalOnlyMode localOnly = LocalOnlyMode.Off;	// whether to look this up in the local scope only
-		
+
 		public ValVar(string identifier) {
 			this.identifier = identifier;
 		}
@@ -1166,9 +1192,9 @@ namespace Miniscript {
 						valueFoundIn = (ValMap)sequence;
 						return result;
 					}
-					
+
 					// Otherwise, if we have an __isa, try that next.
-					if (loopsLeft < 0) throw new LimitExceededException("__isa depth exceeded (perhaps a reference loop?)"); 
+					if (loopsLeft < 0) throw new LimitExceededException("__isa depth exceeded (perhaps a reference loop?)");
 					if (!((ValMap)sequence).TryGetValue(ValString.magicIsA, out sequence)) {
 						// ...and if we don't have an __isa, try the generic map type if allowed
 						if (!includeMapType) throw new KeyException(identifier);
@@ -1199,7 +1225,7 @@ namespace Miniscript {
 			ValMap ignored;
 			return Val(context, out ignored);
 		}
-		
+
 		public override Value Val(TAC.Context context, out ValMap valueFoundIn) {
 			Value baseSeq = sequence;
 			if (sequence == ValVar.self) {
@@ -1222,7 +1248,7 @@ namespace Miniscript {
 			} else if (baseVal is null) {
 				throw new TypeException("Null Reference Exception: can't index into null");
 			}
-				
+
 			throw new TypeException("Type Exception: can't index into this type");
 		}
 
@@ -1258,6 +1284,6 @@ namespace Miniscript {
 			}
 		}
 	}
-	
+
 }
 
